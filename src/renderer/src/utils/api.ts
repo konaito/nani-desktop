@@ -1,8 +1,53 @@
-import { IPC_CHANNELS } from '../../types/ipc'
-
 export interface WindowApi {
   getVersions: () => NodeJS.ProcessVersions
   getPlatform: () => string
+
+  // Database
+  getTranslates: () => Promise<unknown>
+  getTranslateById: (id: string) => Promise<unknown>
+  createTranslate: (data: unknown) => Promise<unknown>
+  updateTranslate: (id: string, data: unknown) => Promise<unknown>
+  deleteTranslate: (id: string) => Promise<unknown>
+  getMessages: (translateId: string) => Promise<unknown>
+  createMessage: (data: unknown) => Promise<unknown>
+
+  // Settings
+  getSettings: () => Promise<unknown>
+  setSettings: (settings: unknown) => Promise<unknown>
+  resetSettings: () => Promise<unknown>
+
+  // Translation
+  translateText: (data: unknown) => Promise<unknown>
+  translateImage: (data: unknown) => Promise<unknown>
+  translateFile: (filePath: string, options: unknown) => Promise<unknown>
+
+  // OCR
+  performOcr: (imagePath: string) => Promise<unknown>
+
+  // Screen Capture
+  captureScreen: () => Promise<unknown>
+  captureWindow: () => Promise<unknown>
+
+  // Window
+  toggleMenuBar: () => void
+  reloadWindow: () => void
+  minimizeWindow: () => void
+  maximizeWindow: () => void
+  closeWindow: () => void
+
+  // Auto Update
+  checkUpdate: () => Promise<unknown>
+  downloadUpdate: () => Promise<unknown>
+  installUpdate: () => Promise<unknown>
+
+  // System
+  openExternal: (url: string) => Promise<unknown>
+
+  // Mac Accessibility
+  getAccessibilitySettings: () => Promise<unknown>
+  openMacAccessibility: () => Promise<unknown>
+
+  // Generic
   on: (channel: string, callback: (...args: unknown[]) => void) => void
   once: (channel: string, callback: (...args: unknown[]) => void) => void
   send: (channel: string, ...args: unknown[]) => void
@@ -20,82 +65,53 @@ declare global {
   }
 }
 
-export class ElectronAPI {
-  static async invoke<T = unknown>(channel: string, ...args: unknown[]): Promise<T> {
-    return window.api.invoke(channel, ...args) as Promise<T>
-  }
-
-  static send(channel: string, ...args: unknown[]): void {
-    window.api.send(channel, ...args)
-  }
-
-  static on(channel: string, callback: (...args: unknown[]) => void): void {
-    window.api.on(channel, callback)
-  }
-
-  static once(channel: string, callback: (...args: unknown[]) => void): void {
-    window.api.once(channel, callback)
-  }
-
-  static off(channel: string): void {
-    window.api.removeAllListeners(channel)
-  }
-}
-
 // Database API
 export const dbApi = {
-  getTranslates: () => ElectronAPI.invoke(IPC_CHANNELS.DB_GET_TRANSLATES),
-  getTranslateById: (id: string) =>
-    ElectronAPI.invoke(IPC_CHANNELS.DB_GET_TRANSLATE_BY_ID, id),
-  createTranslate: (data: unknown) =>
-    ElectronAPI.invoke(IPC_CHANNELS.DB_CREATE_TRANSLATE, data),
-  updateTranslate: (id: string, data: unknown) =>
-    ElectronAPI.invoke(IPC_CHANNELS.DB_UPDATE_TRANSLATE, id, data),
-  deleteTranslate: (id: string) =>
-    ElectronAPI.invoke(IPC_CHANNELS.DB_DELETE_TRANSLATE, id),
-  getMessages: (translateId: string) =>
-    ElectronAPI.invoke(IPC_CHANNELS.DB_GET_MESSAGES, translateId),
-  createMessage: (data: unknown) =>
-    ElectronAPI.invoke(IPC_CHANNELS.DB_CREATE_MESSAGE, data),
-  getKv: (key: string) => ElectronAPI.invoke(IPC_CHANNELS.DB_GET_KV, key),
-  setKv: (key: string, value: string) =>
-    ElectronAPI.invoke(IPC_CHANNELS.DB_SET_KV, key, value)
+  getTranslates: () => window.api.getTranslates(),
+  getTranslateById: (id: string) => window.api.getTranslateById(id),
+  createTranslate: (data: unknown) => window.api.createTranslate(data),
+  updateTranslate: (id: string, data: unknown) => window.api.updateTranslate(id, data),
+  deleteTranslate: (id: string) => window.api.deleteTranslate(id),
+  getMessages: (translateId: string) => window.api.getMessages(translateId),
+  createMessage: (data: unknown) => window.api.createMessage(data)
 }
 
 // Settings API
 export const settingsApi = {
-  get: () => ElectronAPI.invoke(IPC_CHANNELS.SETTINGS_GET),
-  set: (key: string, value: unknown) =>
-    ElectronAPI.invoke(IPC_CHANNELS.SETTINGS_SET, key, value),
-  reset: () => ElectronAPI.invoke(IPC_CHANNELS.SETTINGS_RESET)
+  get: () => window.api.getSettings(),
+  set: (settings: unknown) => window.api.setSettings(settings),
+  reset: () => window.api.resetSettings()
 }
 
 // Translation API
 export const translateApi = {
-  text: (text: string, from: string, to: string) =>
-    ElectronAPI.invoke(IPC_CHANNELS.TRANSLATE_TEXT, text, from, to),
-  image: (imagePath: string, lang: string) =>
-    ElectronAPI.invoke(IPC_CHANNELS.TRANSLATE_IMAGE, imagePath, lang),
-  file: (filePath: string, lang: string) =>
-    ElectronAPI.invoke(IPC_CHANNELS.TRANSLATE_FILE, filePath, lang)
+  text: (data: unknown) => window.api.translateText(data),
+  image: (data: unknown) => window.api.translateImage(data),
+  file: (filePath: string, options: unknown) => window.api.translateFile(filePath, options)
 }
 
 // OCR API
 export const ocrApi = {
-  perform: (imagePath: string) => ElectronAPI.invoke(IPC_CHANNELS.OCR_PERFORM, imagePath)
+  perform: (imagePath: string) => window.api.performOcr(imagePath)
 }
 
 // Screen Capture API
 export const captureApi = {
-  screen: () => ElectronAPI.invoke(IPC_CHANNELS.CAPTURE_SCREEN),
-  window: () => ElectronAPI.invoke(IPC_CHANNELS.CAPTURE_WINDOW)
+  screen: () => window.api.captureScreen(),
+  window: () => window.api.captureWindow()
 }
 
 // Window API
 export const windowApi = {
-  toggleMenuBar: () => ElectronAPI.invoke(IPC_CHANNELS.WINDOW_TOGGLE_MENU_BAR),
-  reload: () => ElectronAPI.invoke(IPC_CHANNELS.WINDOW_RELOAD),
-  minimize: () => ElectronAPI.invoke(IPC_CHANNELS.WINDOW_MINIMIZE),
-  maximize: () => ElectronAPI.invoke(IPC_CHANNELS.WINDOW_MAXIMIZE),
-  close: () => ElectronAPI.invoke(IPC_CHANNELS.WINDOW_CLOSE)
+  toggleMenuBar: () => window.api.toggleMenuBar(),
+  reload: () => window.api.reloadWindow(),
+  minimize: () => window.api.minimizeWindow(),
+  maximize: () => window.api.maximizeWindow(),
+  close: () => window.api.closeWindow()
+}
+
+// Mac Accessibility API
+export const macAccessibilityApi = {
+  getSettings: () => window.api.getAccessibilitySettings(),
+  open: () => window.api.openMacAccessibility()
 }

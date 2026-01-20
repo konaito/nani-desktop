@@ -103,7 +103,7 @@ function App() {
         ) : (
           <div className="app-content">
             <TranslateHistory
-              translates={translates}
+              translates={translates as any}
               selectedId={selectedId}
               onSelect={setSelectedId}
             />

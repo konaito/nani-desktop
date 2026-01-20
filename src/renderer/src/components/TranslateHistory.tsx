@@ -1,4 +1,4 @@
-import type { BasicTranslate } from '../../types'
+import type { BasicTranslate } from '../../../types'
 
 interface TranslateHistoryProps {
   translates: BasicTranslate[]

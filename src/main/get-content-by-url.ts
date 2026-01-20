@@ -1,6 +1,6 @@
 import { BrowserWindow, session } from 'electron'
 import { lookup } from 'node:dns/promises'
-import { Address4, Address6 } from 'ipaddr.js'
+import ipaddr from 'ipaddr.js'
 import { URL } from 'node:url'
 
 interface ContentResult {
@@ -19,7 +19,7 @@ const DNS_CACHE_MAX_SIZE = 100
 
 interface DnsEntry {
   ok: boolean
-  addresses: Array<{ address: string }>
+  addresses?: Array<{ address: string }>
   message?: string
 }
 
@@ -42,7 +42,7 @@ async function dnsLookupWithCache(hostname: string): Promise<Array<{ address: st
     if (!cached.entry.ok) {
       throw new Error(cached.entry.message)
     }
-    return cached.entry.addresses
+    return cached.entry.addresses || []
   }
 
   try {
@@ -71,7 +71,7 @@ function isLocalhost(hostname: string): boolean {
 
 function isUnicastIp(ip: string): boolean {
   try {
-    const addr = ipaddr.js.parse(ip)
+    const addr = ipaddr.parse(ip)
     return addr.range() === 'unicast'
   } catch {
     return false
@@ -93,7 +93,7 @@ async function validateHostname(hostname: string): Promise<void> {
     throw new Error(`Blocked hostname for security reasons: ${hostname}`)
   }
 
-  if (ipaddr.js.isValid(normalized)) {
+  if (ipaddr.isValid(normalized)) {
     if (!isUnicastIp(normalized)) {
       throw new Error(`Blocked IP address for security reasons: ${hostname}`)
     }

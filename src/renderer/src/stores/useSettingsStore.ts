@@ -14,7 +14,11 @@ interface AppSettings {
 interface SettingsState extends AppSettings {
   loading: boolean
 
+  // Computed
+  settings: AppSettings
+
   // Actions
+  loadSettings: () => Promise<void>
   updateSettings: (settings: Partial<AppSettings>) => void
   resetSettings: () => void
   setLoading: (loading: boolean) => void
@@ -31,9 +35,34 @@ const DEFAULT_SETTINGS: AppSettings = {
   enableHotkeys: true
 }
 
-export const useSettingsStore = create<SettingsState>((set) => ({
+export const useSettingsStore = create<SettingsState>((set, get) => ({
   ...DEFAULT_SETTINGS,
   loading: false,
+
+  get settings() {
+    const state = get()
+    return {
+      theme: state.theme,
+      language: state.language,
+      autoUpdate: state.autoUpdate,
+      showMenuBar: state.showMenuBar,
+      defaultFromLang: state.defaultFromLang,
+      defaultToLang: state.defaultToLang,
+      enableOcr: state.enableOcr,
+      enableHotkeys: state.enableHotkeys
+    }
+  },
+
+  loadSettings: async () => {
+    try {
+      if (typeof window !== 'undefined' && window.api) {
+        const settings = await window.api.getSettings()
+        set(settings as Partial<AppSettings>)
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error)
+    }
+  },
 
   updateSettings: (settings) =>
     set((state) => {

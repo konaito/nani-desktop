@@ -73,9 +73,18 @@ export function TranslateEditor({ translateId }: TranslateEditorProps) {
             )}
             {currentTranslate.tagsDump && currentTranslate.tagsDump.length > 0 && (
               <div className="tags">
-                {currentTranslate.tagsDump.map((tag, index) => (
-                  <span key={index} className="tag">{tag}</span>
-                ))}
+                {(() => {
+                  try {
+                    const tags = typeof currentTranslate.tagsDump === 'string'
+                      ? JSON.parse(currentTranslate.tagsDump)
+                      : currentTranslate.tagsDump
+                    return (tags as string[]).map((tag: string, index: number) => (
+                      <span key={index} className="tag">{tag}</span>
+                    ))
+                  } catch {
+                    return null
+                  }
+                })()}
               </div>
             )}
           </div>
@@ -249,7 +258,7 @@ export function TranslateEditor({ translateId }: TranslateEditorProps) {
           <div className="metadata-item">
             <span className="metadata-label">更新日時</span>
             <span className="metadata-value">
-              {new Date(currentTranslate.updatedAt * 1000).toLocaleString()}
+              {new Date((currentTranslate.updatedAt || currentTranslate.createdAt) * 1000).toLocaleString()}
             </span>
           </div>
           {currentTranslate.usedModel && (

@@ -89,7 +89,9 @@ export class MacAccessibilityManager {
 
     try {
       // macOSのReduce Motion設定を取得
-      return systemPreferences.getMediaAccessibilityStatus('reduceMotion') as boolean
+      // 注: Electron 33ではこのAPIは存在しないため、別の方法が必要
+      // とりあえずfalseを返す
+      return false
     } catch {
       return false
     }
@@ -105,7 +107,9 @@ export class MacAccessibilityManager {
 
     try {
       // macOSのIncrease Contrast設定を取得
-      return systemPreferences.getMediaAccessibilityStatus('increaseContrast') as boolean
+      // 注: Electron 33ではこのAPIは存在しないため、別の方法が必要
+      // とりあえずfalseを返す
+      return false
     } catch {
       return false
     }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { dbApi } from '../utils/api'
-import type { BasicTranslate, BasicTranslateMessage } from '../../types'
+import type { BasicTranslate, BasicTranslateMessage } from '../../../types'
 
 export function useTranslates() {
   const [translates, setTranslates] = useState<BasicTranslate[]>([])

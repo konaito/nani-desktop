@@ -16,7 +16,8 @@
       "@/*": ["./src/renderer/src/*"],
       "@renderer/*": ["./src/renderer/src/*"],
       "@main/*": ["./src/main/*"],
-      "@preload/*": ["./src/preload/*"]
+      "@preload/*": ["./src/preload/*"],
+      "repo-lib/*": ["./packages/repo-lib/src/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],

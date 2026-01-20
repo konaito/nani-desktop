@@ -19,7 +19,10 @@ interface Translate {
   lastMessageAddedAt: number
   messages: TranslateMessage[]
   tags?: string[]
+  tagsDump?: string
   customStyleInstruction?: string
+  usedModel?: string
+  updatedAt?: number
 }
 
 interface TranslateState {
@@ -27,6 +30,10 @@ interface TranslateState {
   selectedId: string | null
   loading: boolean
   error: string | null
+
+  // Computed
+  translate: Translate | null
+  messages: TranslateMessage[]
 
   // Actions
   fetchTranslates: () => Promise<void>
@@ -45,6 +52,12 @@ export const useTranslateStore = create<TranslateState>()(
     selectedId: null,
     loading: false,
     error: null,
+    get translate() {
+      return get().translates.find(t => t.id === get().selectedId) || null
+    },
+    get messages() {
+      return get().translate?.messages || []
+    },
 
     fetchTranslates: async () => {
       set({ loading: true, error: null })

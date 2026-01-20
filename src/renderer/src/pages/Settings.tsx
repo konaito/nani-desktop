@@ -9,9 +9,9 @@ interface SettingsProps {
 export function Settings({ onClose }: SettingsProps) {
   const settings = useSettingsStore()
 
-  const handleUpdate = async (key: string, value: any) => {
+  const handleUpdate = async (key: string, value: string | boolean) => {
     try {
-      await settingsApi.set(key, value)
+      await settingsApi.set({ [key]: value })
       settings.updateSettings({ [key]: value })
     } catch (error) {
       console.error('Failed to update setting:', error)

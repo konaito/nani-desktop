@@ -3,7 +3,7 @@ import * as ocr from '@napi-rs/system-ocr'
 export interface OcrResult {
   text: string
   confidence?: number
-  language?: string
+  error?: string
 }
 
 /**
@@ -11,12 +11,12 @@ export interface OcrResult {
  */
 export async function performOcr(imagePath: string): Promise<OcrResult> {
   try {
-    const result = await ocr.ocrFromPath(imagePath)
+    // @napi-rs/system-ocr v1.0.2 API
+    const result = await ocr.recognize(imagePath)
 
     return {
       text: result.text || '',
-      confidence: result.confidence,
-      language: result.language
+      confidence: result.confidence
     }
   } catch (error) {
     throw new Error(

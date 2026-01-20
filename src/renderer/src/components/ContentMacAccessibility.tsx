@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { macAccessibilityApi } from '../utils/api'
 
 interface AccessibilitySettings {
   voiceOverEnabled: boolean
@@ -19,9 +20,9 @@ export function ContentMacAccessibility() {
     // メインプロセスからアクセシビリティ設定を取得
     const fetchAccessibilitySettings = async () => {
       try {
-        const result = await window.electron?.getAccessibilitySettings?.()
+        const result = await macAccessibilityApi.getSettings()
         if (result) {
-          setSettings(result)
+          setSettings(result as AccessibilitySettings)
         }
       } catch (error) {
         console.error('Failed to fetch accessibility settings:', error)
@@ -31,12 +32,14 @@ export function ContentMacAccessibility() {
     fetchAccessibilitySettings()
 
     // アクセシビリティ設定の変更を監視
-    const cleanup = window.electron?.onAccessibilitySettingsChanged?.((newSettings) => {
+    const listenerId = 'accessibility-listener'
+    window.api.on('accessibility-changed', (...args: unknown[]) => {
+      const newSettings = args[1] as AccessibilitySettings
       setSettings(newSettings)
     })
 
     return () => {
-      cleanup?.()
+      window.api.removeAllListeners('accessibility-changed')
     }
   }, [])
 
@@ -78,7 +81,7 @@ export function ContentMacAccessibility() {
       <button
         className="accessibility-settings-btn"
         aria-label="アクセシビリティ設定を開く"
-        onClick={() => window.electron?.openMacAccessibility?.()}
+        onClick={() => macAccessibilityApi.open()}
       >
         <span aria-hidden="true">⚙️</span>
         <span>設定</span>

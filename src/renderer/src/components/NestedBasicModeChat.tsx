@@ -31,7 +31,11 @@ export function NestedBasicModeChat({ translateId }: NestedBasicModeChatProps) {
     // 翻訳を実行
     setTranslating(true)
     try {
-      const result = await translateApi.text(userMessage, fromLang, toLang)
+      const result = await translateApi.text({
+        text: userMessage,
+        sourceLang: fromLang,
+        targetLang: toLang
+      }) as { success?: boolean; translation?: string; error?: string }
 
       if (result.success && result.translation) {
         await addMessage(translateId, {

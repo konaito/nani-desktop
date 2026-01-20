@@ -7,9 +7,10 @@ interface CaptureResult {
 }
 
 interface SelectionResult {
-  type: 'selected' | 'canceled'
+  type: 'selected' | 'canceled' | 'error'
   displayId?: number
   rect?: { x: number; y: number; width: number; height: number }
+  message?: string
 }
 
 let isCapturing = false

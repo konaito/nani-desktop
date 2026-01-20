@@ -76,7 +76,7 @@ export async function translateImage(
   for (const endpoint of endpoints) {
     try {
       const formData = new FormData()
-      formData.append('image', new Blob([request.imageData]))
+      formData.append('image', new Blob([new Uint8Array(request.imageData)], { type: 'image/png' }))
       formData.append('targetLang', request.targetLang)
 
       if (request.sourceLang) {

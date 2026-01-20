@@ -53,7 +53,10 @@ export function QuickUploadHandler() {
     const result = (await captureApi.screen()) as string
     if (result) {
       setProgress({ loaded: 50, total: 100, stage: 'translating' })
-      await translateApi.image(result, targetLang)
+      await translateApi.image({
+        imageData: Buffer.from(result, 'base64'),
+        targetLang
+      })
       setProgress({ loaded: 100, total: 100, stage: 'translating' })
     }
   }
@@ -89,7 +92,10 @@ export function QuickUploadHandler() {
     const base64 = await fileToBase64(imageFile)
     setProgress({ loaded: 75, total: 100, stage: 'translating' })
 
-    await translateApi.image(base64, targetLang)
+    await translateApi.image({
+      imageData: Buffer.from(base64, 'base64'),
+      targetLang
+    })
     setProgress({ loaded: 100, total: 100, stage: 'translating' })
 
     // クリーンアップ
@@ -110,7 +116,7 @@ export function QuickUploadHandler() {
     const base64 = await fileToBase64(file)
     setProgress({ loaded: 50, total: 100, stage: 'translating' })
 
-    const result = await window.electron?.translateFile?.(base64, targetLang)
+    const result = await window.api.translateFile(base64, { targetLang }) as { success?: boolean; error?: string }
     if (result?.success) {
       setProgress({ loaded: 100, total: 100, stage: 'translating' })
     } else {
@@ -128,7 +134,11 @@ export function QuickUploadHandler() {
     const text = await file.text()
     setProgress({ loaded: 50, total: 100, stage: 'translating' })
 
-    const result = await translateApi.text(text, 'auto', targetLang)
+    const result = await translateApi.text({
+      text,
+      sourceLang: 'auto',
+      targetLang
+    }) as { success?: boolean; error?: string }
     if (result.success) {
       setProgress({ loaded: 100, total: 100, stage: 'translating' })
     } else {

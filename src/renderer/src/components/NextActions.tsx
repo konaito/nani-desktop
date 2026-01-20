@@ -1,8 +1,14 @@
 import { windowApi } from '../utils/api'
 
-export function NextActions() {
+interface NextActionsProps {
+  onOpenSettings: () => void
+  onOpenHistory: () => void
+  onNewTranslate: () => void
+}
+
+export function NextActions({ onOpenSettings, onOpenHistory, onNewTranslate }: NextActionsProps) {
   const handleNewTranslation = () => {
-    console.log('New translation')
+    onNewTranslate()
   }
 
   const handleToggleMenuBar = async () => {
@@ -16,6 +22,8 @@ export function NextActions() {
   return (
     <div className="next-actions">
       <button onClick={handleNewTranslation}>New</button>
+      <button onClick={onOpenSettings}>Settings</button>
+      <button onClick={onOpenHistory}>History</button>
       <button onClick={handleToggleMenuBar}>Toggle Menu</button>
       <button onClick={handleReload}>Reload</button>
     </div>
