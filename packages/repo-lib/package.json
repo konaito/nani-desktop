@@ -1,0 +1,29 @@
+{
+  "name": "repo-lib",
+  "version": "1.0.0",
+  "description": "Shared library for Nani Desktop",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./features/basic-mode/basic-mode-schema": "./dist/features/basic-mode/basic-mode-schema.js",
+    "./features/app-settings/app-settings-schema": "./dist/features/app-settings/app-settings-schema.js",
+    "./features/theme/theme-schema": "./dist/features/theme/theme-schema.js",
+    "./utils/utils": "./dist/utils/utils.js",
+    "./utils/jsonfetch": "./dist/utils/jsonfetch.js",
+    "./utils/common-schema": "./dist/utils/common-schema.js",
+    "./utils/supported-langs": "./dist/utils/supported-langs.js",
+    "./utils/in-app-hotkeys": "./dist/utils/in-app-hotkeys.js",
+    "./utils/generate-secure-id": "./dist/utils/generate-secure-id.js",
+    "./dictionaries/server/server-dictionary": "./dist/dictionaries/server/server-dictionary.js"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.44.5",
+    "valibot": "1.1.0",
+    "nanoid": "^5.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.2"
+  }
+}

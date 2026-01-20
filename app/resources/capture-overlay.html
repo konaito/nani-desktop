@@ -1,0 +1,475 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' 'unsafe-inline' data:; img-src 'self' data:; style-src 'self' 'unsafe-inline';"
+    />
+    <title>selection</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      body {
+        background: transparent;
+      }
+
+      /* 複数ディスプレイでも十字カーソルを維持するための既定指定
+         - OS側が一瞬デフォルトに戻すケースがあるため、主要要素へ強制指定。
+         - ソフトウェアカーソルは使用しない（OSカーソルをそのまま表示）。 */
+      html,
+      body,
+      .mask,
+      .selection,
+      * {
+        cursor: crosshair !important;
+      }
+
+      .mask {
+        position: fixed;
+        inset: 0;
+        background: transparent;
+        touch-action: none;
+        cursor: crosshair;
+      }
+
+      /* 選択範囲のみを視覚的に示すため半透明の塗りを適用 */
+      .selection {
+        position: fixed;
+        border: 2px solid #4da0ff;
+        background: rgba(0, 0, 0, 0.1);
+        pointer-events: none;
+        box-shadow: 0 0 0 1px rgba(103, 168, 255, 0.2);
+      }
+      .close-btn {
+        position: fixed;
+        top: 50%;
+        left: 12px;
+        z-index: 1000;
+        rotate: 90deg;
+        transform-origin: bottom left;
+        background: #222;
+        border: solid 2px rgb(255, 255, 255);
+        box-shadow: 5px 0px 15px rgba(0, 0, 0, 0.3);
+        border-radius: 2.5em;
+        color: white;
+        font-size: 14.5px;
+        padding: 6px 12px 6px 10px;
+        line-height: 1.2;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer !important;
+        transition: scale 0.15s ease-out;
+        outline: 0;
+      }
+
+      .close-btn:hover {
+        scale: 1.05;
+      }
+      .close-btn-esc {
+        opacity: 0.6;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mask" id="mask"></div>
+    <div class="selection" id="selection" style="display: none"></div>
+    <!-- ソフトウェアカーソルは使用しない（OSカーソルをそのまま表示） -->
+    <script>
+      const { ipcRenderer } = require('electron')
+      const { Buffer } = require('buffer')
+      const params = new URLSearchParams(window.location.search)
+      const overlayConfig = parseOverlayConfig(params.get('config'))
+      const selectionNode = document.getElementById('selection')
+      const maskNode = document.getElementById('mask')
+
+      if (!(selectionNode instanceof HTMLElement) || !(maskNode instanceof HTMLElement)) {
+        // 必須ノードが取得できない場合は安全にキャンセルへフォールバック
+        console.error('Capture overlay elements are missing; cancel capture')
+        ipcRenderer.send('overlay-selection-canceled')
+      } else {
+        const selection = selectionNode
+        const mask = maskNode
+        const displayLayouts = buildDisplayLayouts(overlayConfig)
+
+        let activeDisplay = null
+        let startX = 0
+        let startY = 0
+        let dragging = false
+        let activePointerId = null
+        let rafId = null
+        let pendingRect = null
+        let currentSelectionRect = null
+        let pendingResetCursorId = null
+
+        function enforceCrosshairCursor() {
+          // カーソルが他ウィンドウに奪われても十字を維持するため明示的に設定
+          // ※ 一部環境で一瞬だけデフォルトへ戻る事象があるため、複数ノードへ冪等に適用
+          const targetCursor = 'crosshair'
+          if (document.documentElement.style.cursor !== targetCursor) {
+            document.documentElement.style.cursor = targetCursor
+          }
+          if (document.body.style.cursor !== targetCursor) {
+            document.body.style.cursor = targetCursor
+          }
+          if (mask.style.cursor !== targetCursor) {
+            mask.style.cursor = targetCursor
+          }
+          if (selection.style.cursor !== targetCursor) {
+            selection.style.cursor = targetCursor
+          }
+        }
+
+        // ソフトウェアカーソルは使わず、OSの十字カーソルを維持
+        // （ここを消すと環境によってはデフォルト矢印へ戻る事があるため注意）
+
+        enforceCrosshairCursor()
+        window.addEventListener('focus', enforceCrosshairCursor)
+        mask.addEventListener(
+          'pointerenter',
+          () => {
+            // 画面を跨いだときに対象のオーバーレイを前面/フォーカスにする
+            ipcRenderer.send('overlay-pointer-enter')
+            enforceCrosshairCursor()
+          },
+          { passive: true }
+        )
+
+        // ソフトウェアカーソル関連の処理は削除
+
+        function findDisplayByPoint(x, y) {
+          // マウス座標が属するディスプレイを特定し、未所属ならnullを返す
+          for (const display of displayLayouts) {
+            if (
+              x >= display.left &&
+              x <= display.right &&
+              y >= display.top &&
+              y <= display.bottom
+            ) {
+              return display
+            }
+          }
+          return null
+        }
+
+        function clampToRange(value, min, max) {
+          return Math.min(Math.max(value, min), max)
+        }
+
+        function clampPointToDisplay(display, x, y) {
+          return {
+            x: clampToRange(x, display.left, display.right),
+            y: clampToRange(y, display.top, display.bottom)
+          }
+        }
+
+        function clearSelectionVisuals() {
+          dragging = false
+          releasePointerCaptureIfNeeded()
+          if (rafId !== null) {
+            window.cancelAnimationFrame(rafId)
+            rafId = null
+          }
+          pendingRect = null
+          currentSelectionRect = null
+          selection.style.display = 'none'
+          if (pendingResetCursorId !== null) {
+            clearTimeout(pendingResetCursorId)
+            pendingResetCursorId = null
+          }
+          pendingResetCursorId = window.setTimeout(() => {
+            pendingResetCursorId = null
+            enforceCrosshairCursor()
+          }, 16)
+          activeDisplay = null
+        }
+
+        // ESCやクローズボタンなど複数入力から共通でキャンセル処理を呼び出すヘルパー
+        function cancelOverlaySelection() {
+          clearSelectionVisuals()
+          ipcRenderer.send('overlay-selection-canceled')
+        }
+
+        function releasePointerCaptureIfNeeded() {
+          if (
+            activePointerId !== null &&
+            typeof mask.hasPointerCapture === 'function' &&
+            mask.hasPointerCapture(activePointerId)
+          ) {
+            mask.releasePointerCapture(activePointerId)
+          }
+          activePointerId = null
+        }
+
+        // クリア時点での背景処理は不要
+
+        function applySelectionRect(rect) {
+          selection.style.display = 'block'
+          selection.style.left = rect.left + 'px'
+          selection.style.top = rect.top + 'px'
+          selection.style.width = rect.width + 'px'
+          selection.style.height = rect.height + 'px'
+          currentSelectionRect = rect
+        }
+
+        function scheduleSelectionRect(x1, y1, x2, y2) {
+          // requestAnimationFrameで矩形更新を間引きしドラッグ中の描画負荷を抑制
+          const left = Math.round(Math.min(x1, x2))
+          const top = Math.round(Math.min(y1, y2))
+          const width = Math.max(1, Math.round(Math.abs(x2 - x1)))
+          const height = Math.max(1, Math.round(Math.abs(y2 - y1)))
+          pendingRect = {
+            left,
+            top,
+            width,
+            height,
+            right: left + width,
+            bottom: top + height
+          }
+
+          if (rafId !== null) return
+          rafId = window.requestAnimationFrame(() => {
+            rafId = null
+            if (!pendingRect) return
+            applySelectionRect(pendingRect)
+            pendingRect = null
+          })
+        }
+
+        function hasValidSelection() {
+          return Boolean(
+            currentSelectionRect &&
+              currentSelectionRect.width >= 3 &&
+              currentSelectionRect.height >= 3 &&
+              activeDisplay
+          )
+        }
+
+        function emitSelectionResult() {
+          // 選択結果の送信処理を共通化してキーボード/マウス双方から呼び出す
+          if (!hasValidSelection() || !currentSelectionRect || !activeDisplay) return
+          const relativeLeft = Math.max(
+            0,
+            Math.round(currentSelectionRect.left - activeDisplay.left)
+          )
+          const relativeTop = Math.max(0, Math.round(currentSelectionRect.top - activeDisplay.top))
+          const relativeWidth = Math.max(
+            1,
+            Math.min(Math.round(currentSelectionRect.width), activeDisplay.width)
+          )
+          const relativeHeight = Math.max(
+            1,
+            Math.min(Math.round(currentSelectionRect.height), activeDisplay.height)
+          )
+          ipcRenderer.send('overlay-selection-finished', {
+            displayId: activeDisplay.id,
+            rect: {
+              x: relativeLeft,
+              y: relativeTop,
+              width: relativeWidth,
+              height: relativeHeight
+            }
+          })
+        }
+
+        window.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            cancelOverlaySelection()
+          }
+
+          if (event.key === 'Enter' && hasValidSelection()) {
+            emitSelectionResult()
+          }
+        })
+
+        mask.addEventListener('pointerdown', (event) => {
+          // Pointer Eventsで各種デバイス操作を統一
+          if (event.button !== 0) return
+          const targetDisplay = findDisplayByPoint(event.clientX, event.clientY)
+          if (!targetDisplay) return
+          event.preventDefault()
+          dragging = true
+          activeDisplay = targetDisplay
+          activePointerId = event.pointerId
+          const clampedStart = clampPointToDisplay(targetDisplay, event.clientX, event.clientY)
+          startX = clampedStart.x
+          startY = clampedStart.y
+          if (typeof mask.setPointerCapture === 'function') {
+            mask.setPointerCapture(activePointerId)
+          }
+          const initialPoint = clampPointToDisplay(targetDisplay, startX + 1, startY + 1)
+          scheduleSelectionRect(startX, startY, initialPoint.x, initialPoint.y)
+        })
+
+        mask.addEventListener('pointermove', (event) => {
+          if (!dragging || event.pointerId !== activePointerId || !activeDisplay) return
+          event.preventDefault()
+          const nextPoint = clampPointToDisplay(activeDisplay, event.clientX, event.clientY)
+          scheduleSelectionRect(startX, startY, nextPoint.x, nextPoint.y)
+        })
+
+        function handlePointerCompletion(pointerId) {
+          if (!dragging || pointerId !== activePointerId) return
+          dragging = false
+          if (pendingRect) {
+            if (rafId !== null) {
+              window.cancelAnimationFrame(rafId)
+              rafId = null
+            }
+            applySelectionRect(pendingRect)
+            pendingRect = null
+          }
+          releasePointerCaptureIfNeeded()
+
+          if (!hasValidSelection()) {
+            cancelOverlaySelection()
+            return
+          }
+
+          emitSelectionResult()
+        }
+
+        mask.addEventListener('pointerup', (event) => {
+          event.preventDefault()
+          handlePointerCompletion(event.pointerId)
+        })
+
+        mask.addEventListener('pointercancel', (event) => {
+          if (!dragging || event.pointerId !== activePointerId) return
+          releasePointerCaptureIfNeeded()
+          cancelOverlaySelection()
+        })
+
+        // クローズボタンでもESCと同様に処理を完了できるようにDOM構築後にイベントを登録
+        function registerCloseButtonHandler() {
+          const closeButton = document.getElementById('close-btn')
+          if (!(closeButton instanceof HTMLButtonElement)) return
+          closeButton.addEventListener('click', () => {
+            cancelOverlaySelection()
+          })
+        }
+
+        if (document.readyState === 'loading') {
+          window.addEventListener('DOMContentLoaded', registerCloseButtonHandler, { once: true })
+        } else {
+          registerCloseButtonHandler()
+        }
+
+        // ソフトウェアカーソルは未使用のため、enter/leaveの追従処理は不要
+
+        // --- メモリリーク予防: ページ破棄時に保留中のタイマー/RAF/キャプチャ状態を明示的に解除 ---
+        window.addEventListener('beforeunload', () => {
+          try {
+            releasePointerCaptureIfNeeded()
+          } catch (_) {}
+          if (rafId !== null) {
+            window.cancelAnimationFrame(rafId)
+            rafId = null
+          }
+          if (pendingResetCursorId !== null) {
+            clearTimeout(pendingResetCursorId)
+            pendingResetCursorId = null
+          }
+        })
+      }
+
+      function parseOverlayConfig(rawValue) {
+        // Base64URL化されたオーバーレイ設定を復元し、異常値は安全側へフォールバック
+        if (typeof rawValue !== 'string' || rawValue.length === 0) {
+          return { origin: { x: 0, y: 0 }, displays: [] }
+        }
+        try {
+          const decoded = Buffer.from(rawValue, 'base64url').toString('utf8')
+          const parsed = JSON.parse(decoded)
+          const origin =
+            typeof parsed?.origin === 'object' && parsed.origin !== null ? parsed.origin : {}
+          return {
+            origin: {
+              x: Number.isFinite(Number(origin.x)) ? Number(origin.x) : 0,
+              y: Number.isFinite(Number(origin.y)) ? Number(origin.y) : 0
+            },
+            displays: Array.isArray(parsed?.displays) ? parsed.displays : []
+          }
+        } catch (error) {
+          console.error('Failed to parse overlay config', error)
+          return { origin: { x: 0, y: 0 }, displays: [] }
+        }
+      }
+
+      function buildDisplayLayouts(config) {
+        // メインプロセス座標→ウィンドウ座標へ変換し、ディスプレイ毎の矩形情報を整形
+        const originX = Number.isFinite(Number(config.origin?.x)) ? Number(config.origin.x) : 0
+        const originY = Number.isFinite(Number(config.origin?.y)) ? Number(config.origin.y) : 0
+        const layouts =
+          config.displays?.map?.((display) => {
+            const bounds = display?.bounds ?? {}
+            const id = Number(display?.id)
+            const rawLeft = Number(bounds.x)
+            const rawTop = Number(bounds.y)
+            const rawWidth = Number(bounds.width)
+            const rawHeight = Number(bounds.height)
+
+            if (
+              !Number.isFinite(id) ||
+              !Number.isFinite(rawLeft) ||
+              !Number.isFinite(rawTop) ||
+              !Number.isFinite(rawWidth) ||
+              !Number.isFinite(rawHeight) ||
+              rawWidth <= 0 ||
+              rawHeight <= 0
+            ) {
+              return null
+            }
+
+            const width = Math.max(1, Math.round(rawWidth))
+            const height = Math.max(1, Math.round(rawHeight))
+            const left = Math.round(rawLeft - originX)
+            const top = Math.round(rawTop - originY)
+
+            return {
+              id,
+              left,
+              top,
+              width,
+              height,
+              right: left + width,
+              bottom: top + height
+            }
+          }) ?? []
+
+        const filtered = layouts.filter(Boolean)
+        if (filtered.length > 0) {
+          return filtered
+        }
+
+        const fallbackWidth = Math.max(1, Math.round(window.innerWidth))
+        const fallbackHeight = Math.max(1, Math.round(window.innerHeight))
+        return [
+          {
+            id: 0,
+            left: 0,
+            top: 0,
+            width: fallbackWidth,
+            height: fallbackHeight,
+            right: fallbackWidth,
+            bottom: fallbackHeight
+          }
+        ]
+      }
+    </script>
+    <button class="close-btn" id="close-btn">
+      <img src="./nani-eye.svg" width="20" height="20" />
+      <span class="close-btn-esc">esc</span>
+    </button>
+  </body>
+</html>

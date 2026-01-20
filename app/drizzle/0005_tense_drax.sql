@@ -1,0 +1,1 @@
+ALTER TABLE `basic_translate` ADD `ref_url` text;

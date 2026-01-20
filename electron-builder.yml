@@ -1,0 +1,52 @@
+appId: com.kioku.nani
+productName: Nani
+copyright: Copyright © 2025 kioku
+directories:
+  buildResources: build
+  output: release
+
+files:
+  - '!**/.vscode/*'
+  - '!**/.DS_Store'
+  - '!**/Thumbs.db'
+  - '!**/*.map'
+  - '!**/*.ts'
+
+mac:
+  category: public.app-category.productivity
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: entitlements.mac.plist
+  entitlementsInherit: entitlements.mac.plist
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: \${productName}-\${version}-\${arch}.\${ext}
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  category: Utility

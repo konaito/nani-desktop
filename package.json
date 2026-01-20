@@ -1,0 +1,58 @@
+{
+  "name": "nani-desktop",
+  "version": "1.0.59",
+  "description": "Nani Desktop - AI translation application",
+  "main": "./out/main/index.js",
+  "author": "kioku",
+  "license": "PRIVATE",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "build:win": "npm run build && electron-builder --win",
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:linux": "npm run build && electron-builder --linux",
+    "lint": "eslint . --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
+    "@mozilla/readability": "^0.6.0",
+    "@napi-rs/system-ocr": "^1.0.2",
+    "@nut-tree-fork/nut-js": "4.2.6",
+    "better-sqlite3": "12.5.0",
+    "drizzle-orm": "0.44.5",
+    "electron-log": "^5.4.0",
+    "electron-updater": "^6.6.2",
+    "file-type": "^21.0.0",
+    "ipaddr.js": "^2.3.0",
+    "isexe": "2.0.0",
+    "nanoid": "^5.1.5",
+    "repo-lib": "workspace:*",
+    "valibot": "1.1.0",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@electron-toolkit/tsconfig": "^1.0.1",
+    "@electron/notarize": "^2.5.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.11"
+  },
+  "optionalDependencies": {
+    "@napi-rs/system-ocr-darwin-arm64": "1.0.2",
+    "@napi-rs/system-ocr-win32-x64-msvc": "1.0.2"
+  }
+}
